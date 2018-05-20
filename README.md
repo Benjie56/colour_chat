@@ -7,7 +7,7 @@ A minetest CSM mod for changing the colour of text sent to the server.
 
 	.get_colour <name>  			-  get the hex value from a colour name
 	.get_color <name> 			-  same as get_colour, but with different spelling
-	.set_colour [<col1> [<col2]]   	-  Set the default chat colour to either one solid colour, or a fade between two colours. Leave blank to reset.
+	.set_colour [<col1> [<col2]]   		-  Set the default chat colour to either one solid colour, or a fade between two colours. Leave blank to reset.
 	.set_color [<col1> [<col2]]		-  same as set_colour, but with different spelling.
 	.rainbow <message>  			-  send a message with rainbow colours.
 	.pastel <message>  			-  similar to rainbow, but easier to read.
