@@ -17,3 +17,6 @@ A minetest CSM mod for changing the colour of text sent to the server.
 	.msg <playername> <message>		-  send a private message, the same as "/msg", but with your colour applied to it
 	.mw <message>  				-  send a message with a red "MODERATOR WARNING:  ".
 	.say <message>  			-  send a plain, white message.
+
+
+- [Forum Topic](https://forum.minetest.net/viewtopic.php?f=53&t=20152)
