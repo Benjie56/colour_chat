@@ -11,7 +11,7 @@ A minetest CSM mod for changing the colour of text sent to the server.
 	.set_color [<col1> [<col2]]		-  same as set_colour, but with different spelling.
 	.rainbow <message>  			-  send a message with rainbow colours.
 	.pastel <message>  			-  similar to rainbow, but easier to read.
-	.alternate [<col1> <col2>] <message>	-  alternate between two colours, only send a message to use red and green, long messages are split over multiple messages.
+	.alternate [<col1> <col2>] <message>	-  alternate between two colours, only put the message to use red and green, long messages are split over multiple messages.
 	.fade <col1> <col2> <message>  		-  fade message between two colours  -  works with long messages!!
 	.custom <message with colours>  	-  send a message with custom colour changes. Use "#------" anywhere in the text to change colours.
 	.msg <playername> <message>		-  send a private message, the same as "/msg", but with your colour applied to it
