@@ -1,6 +1,6 @@
 # colour_chat
 A minetest CSM mod for changing the colour of text sent to the server.
-[First version](https://github.com/red-001/colour_chat) was made by red-001, more features were added by fiftysix. Pastel added by dhausmig.
+[First version](https://github.com/red-001/colour_chat) was made by red-001, more features were added by me. Pastel added by dhausmig.
 
 ## chat commands:  
 (note: all colours must be a 6 letter hex code with a "#" - eg: "#ffffff")
