@@ -1,5 +1,5 @@
 --[[
-based of chat colours by red-001, with many new features added by fiftysix and dhausmig.
+based of chat colours by red-001, with many new features added by fiftysix. Pastel added by dhausmig.
 
 chat commands:  (note: all colours must be a 6 letter hex code with a "#" - eg: "#ffffff")
 
@@ -365,7 +365,7 @@ core.register_chatcommand("msg", {  -- added - lets you use /msg with colours
 			name = name .. string.sub(parameter, i, i)  -- contains leading space
 		end
 		local message = string.sub(parameter, i+1)
-		message = fade_string(message, string.sub(colour, 1, 7), string.sub(colour, 9, 15), 493)
+		message = fade_string(message, string.sub(colour, 1, 7), string.sub(colour, 9, 15), 450)
 		say("/msg "..name..message)
 	end,
 })
