@@ -185,13 +185,14 @@ local colour_names = {
 	green = "#00ff00",
 	blue = "#0000ff",
 	yellow = "#ffff00",
-	turquois = "#00ffff",
+	turquoise = "#00ffff",
 	purple = "#ff00ff",
 	white = "#ffffff",
 	black = "#000000",
 	orange = "#ff8800",
 	pink = "#ff00aa",
 	gray = "#777777",
+	grey = "#777777",
 	--  add more colours here!
 }
 
