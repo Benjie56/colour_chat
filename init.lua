@@ -1,19 +1,16 @@
 --[[
-based of chat colours by red-001, with many new features added by fiftysix. Pastel added by dhausmig.
+based of chat colours by red-001, with some fancy new features added by fiftysix. Pastel command added by dhausmig.
 
 chat commands:  (note: all colours must be a 6 letter hex code with a "#" - eg: "#ffffff")
 
-    .get_colour <name>                         -  get the hex value from a colour name
-    .get_color <name>                          -  same as get_colour, but with different spelling
     .set_colour [<col1> [<col2> [<times>] ] ]  -  Set the default chat colour to either one solid colour, or a fade between two colours. 'times' is how many times to fade between them. Leave blank to reset to white.
-    .set_color [<col1> [<col2> [<times>] ] ]   -  same as .set_colour, but with american spelling.
-    .rainbow <message>                         -  send a message with rainbow colours.
-    .pastel <message>                          -  similar to rainbow, but easier to read.
+    .set_max_message_length <value>            -  set the maximum chat message length for the current server.
+    .rainbow <message>                         -  Send a message with rainbow colours.
+    .pastel <message>                          -  Similar to rainbow, but easier to read.
     .alternate [<col1> <col2>] <message>       -  alternate between two colours.
-    .fade <col1> <col2> [<times>] <message>    -  fade message between two colours, fade multiple times  -  works with long messages!!
-    .custom <message with colours>             -  send a message with custom colour changes. Use "#------" anywhere in the text to change colours.
-    .msg <playername> <message>                -  send a private message, the same as "/msg", but with your colours applied to it
-    .mw <message>                              -  send a message with a red "MODERATOR WARNING:  ".
+    .fade <col1> <col2> [<times>] <message>    -  fade message between two colours, fade multiple times  -  works with long messages.
+    .custom <message with colours>             -  send a message with custom colour changes. Use #------ anywhere in the text to change colours.
+    .msg <name> <message>                      -  send a private message, the same as "/msg", but with your colours applied to it.
     .say <message>                             -  send a plain, white message.
     
 changes:
@@ -21,12 +18,24 @@ changes:
     - messages can fade through colours multiple times
     - short messages don't fade
     - .alternate uses users colours instead of red and green if no parameters are given
-    - moderator warning now gives a warning before sending the message
     - comments and code cleaned up a little
-    
+    ---
+    - .mw and .get_colour commands removed
+    - extra spellings of chat commands removed
+    - command descriptions cleaned
+    - set_max_message_length
+    ---
+    TODO:
+    - use config files instead of mod storage
+    - clean up fade()
+    - better calculation of message length
 ]]--
 
 local modstorage = minetest.get_mod_storage()
+
+if modstorage:get_int("max_len") == 0 then
+    modstorage:set_int("max_len", 500)
+end
 
 local function rgb_to_hex(rgb)
     local hexadecimal = '#'
@@ -93,12 +102,12 @@ local function pastel_from_hue(hue) -- added by dhausmig
     end
 end
 
-function hex2rgb(hex)  -- added - found on github
+function hex2rgb(hex)  -- found on github
     hex = hex:gsub("#","")
     return {tonumber("0x"..hex:sub(1,2)), tonumber("0x"..hex:sub(3,4)), tonumber("0x"..hex:sub(5,6))}
 end
 
-local function colour_step(pos, col1, col2)  -- added - gets a colour between colours
+local function colour_at_point(pos, col1, col2)  -- gets a colour at a point between 2 colours
     local rgb1 = hex2rgb(col1)
     local rgb2 = hex2rgb(col2)
     if rgb1 == nil or rgb2 == nil then
@@ -115,12 +124,6 @@ local function colour_step(pos, col1, col2)  -- added - gets a colour between co
     return string.sub(colour, 1, 2) .. string.sub(colour, 4, 4) .. string.sub(colour, 6, 6)  -- reduce to shorter hex
 end
 
-local register_on_message = minetest.register_on_sending_chat_message
-if minetest.register_on_sending_chat_messages then
-    register_on_message = minetest.register_on_sending_chat_messages
-end
-
-local do_say = nil  -- for multi step confirmation in .mw
 
 local function say(message)
     minetest.send_chat_message(message)
@@ -128,31 +131,58 @@ local function say(message)
         local name = minetest.localplayer:get_name()
         minetest.display_chat_message("<"..name.."> " .. message)
     end
-    do_say = nil  -- reset if ignored
 end
 
-function fade_string(text, col1, col2, char_max)  -- added - adds all the colour changes to fade between two colours to a string, but makes sure it doesn't pass the character limit
+
+local register_on_message = minetest.register_on_sending_chat_message
+if minetest.register_on_sending_chat_messages then
+    register_on_message = minetest.register_on_sending_chat_messages
+end
+register_on_message(function(message)
+    local colour = modstorage:get_string("colour")
+    if message:sub(1,1) == "/" or colour == "" or colour == "#ffffff #ffffff 1" or colour:len() ~= 17 then
+        return false
+    end
+
+    fade(colour .. " " .. message)
+    return true
+end)
+
+minetest.register_on_receiving_chat_message(function(message)
+    if message == "Your message exceed the maximum chat message limit set on the server. It was refused. Send a shorter message" then
+        minetest.display_chat_message(message.."\nThis server may have reduced their maximum message length. Try .set_max_message_length <value> with a value lower than 500")
+        return true
+    end
+end)
+
+
+function fade_string(text, col1, col2, char_max)  -- adds all the colour changes to fade between two colours to a string, but makes sure it doesn't pass the character limit
     if char_max == nil then
-        char_max = 500
+        local server = minetest.get_server_info()
+        char_max = modstorage:get_int(server.address.."_max_len")
     end
     char_max = char_max - minetest.localplayer:get_name():len() - 0.1
     local col_len = 9
     local output = ""
     local step = 1
     if text:len()+text:len()*col_len > char_max then
-        step = text:len()/((char_max-text:len())/col_len)
+        local sections = ((char_max-text:len())/col_len)
+        if sections < 1 then
+            sections = 1
+        end
+        step = text:len()/sections
     end
     for pos=0, text:len(), step do  
         local section = string.sub(text, math.floor(pos+1.5), math.floor(pos+step+0.5))
         if section ~= "" then
-            local col = minetest.get_color_escape_sequence(colour_step(pos/(text:len()-1)*255, col1, col2))  -- find the colour
+            local col = minetest.get_color_escape_sequence(colour_at_point(pos/(text:len()-1)*255, col1, col2))  -- find the colour
             output = output .. col .. section  -- insert the part of text which uses the colour
         end
     end
     return output
 end
 
-function fade(parameter, give)  -- added - parse message for parameters, and send a message with colours applied
+function fade(parameter, give)  -- parse message for parameters, and send a message with colours applied
     if parameter:len() <= 14 then
         return true, "see '.help fade' or '.help set_colour' for usage"
     end
@@ -181,7 +211,7 @@ function fade(parameter, give)  -- added - parse message for parameters, and sen
         return true
     end
     
-    local max_chars = 500
+    local max_chars = modstorage:get_int("max_len")
     if type(give) == "number" then
         max_chars = give
     end
@@ -199,74 +229,38 @@ function fade(parameter, give)  -- added - parse message for parameters, and sen
     return true
 end
 
-
-register_on_message(function(message)
-    if message:sub(1,1) == "/" or modstorage:get_string("colour") == "" or modstorage:get_string("colour") == "#ffffff #ffffff 1" or modstorage:get_string("colour"):len() ~= 17 then
-        return false
-    end
-
-    fade(modstorage:get_string("colour") .. " " .. message)  -- changed
-    return true
-end)
-
-local colour_names = {
-    red = "#ff0000",
-    green = "#00ff00",
-    blue = "#0000ff",
-    yellow = "#ffff00",
-    turquois = "#00ffff",
-    purple = "#ff00ff",
-    white = "#ffffff",
-    black = "#000000",
-    orange = "#ff8800",
-    pink = "#ff00aa",
-    gray = "#777777",
-    --  add more colours here!
-}
-
-minetest.register_chatcommand("get_colour", {  --  added - get a hex colour from a colour name
-    description = minetest.gettext(".get_colour <colour name>  -  displays the hex colour for a colour name"),
-    func = function(parameter)
-        if colour_names[parameter] == nil then
-            return "unknown, try https://htmlcolorcodes.com/color-picker/"
-        end
-        return true, colour_names[parameter]
-    end,
-})
-
-minetest.register_chatcommand("get_color", {  --  added - the american spelling for colour, same as get_colour()
-    description = minetest.gettext(".get_color <colour name>  -  displays the hex colour for a color name"),
-    func = function(parameter)
-        if colour_names[parameter] == nil then
-            return "unknown, try https://htmlcolorcodes.com/color-picker/"
-        end
-        return true, colour_names[parameter]
-    end,
-})
-
-local function set_colour(colour)  -- added - parses the parameter and changes the colour
-    if colour:len() == 7 then
-        modstorage:set_string("colour", colour.." "..colour.." 1")
-    elseif colour:len() == 15 then
-        modstorage:set_string("colour", colour.." 1")
-    else
-        modstorage:set_string("colour", colour)  -- (not added)
-    end
-    return true, "Chat colour changed."
-end
-
 minetest.register_chatcommand("set_colour", {
-    description = minetest.gettext(".set_colour [col1] [col2] - Change chat colour to solid, fade, or reset"),
-    func = set_colour,  -- changed
+    description = minetest.gettext("Change the colour you chat with. 1 colour for solid colour, 2 colours to fade between colours, optional 3rd parameter to alternate between the 2 colours multiple times. use without params to reset"),
+    params = "[<colour1>] [<colour2>] [times]",
+    func = function(parameter)  -- parses the parameter and changes the colour
+        if parameter:len() == 7 then
+            modstorage:set_string("colour", parameter.." "..parameter.." 1")
+        elseif parameter:len() == 15 then
+            modstorage:set_string("colour", parameter.." 1")
+        else
+            modstorage:set_string("colour", parameter)
+        end
+        return true, "Chat colour changed."
+    end,
 })
 
-minetest.register_chatcommand("set_color", {  -- for people that automatically use "color"
-    description = minetest.gettext(".set_color [col1] [col2] - Change chat color to solid, fade, or reset"),
-    func = set_colour,
+minetest.register_chatcommand("set_max_message_length", {  -- sets the maximum message length
+    description = minetest.gettext("Change the maximum chat message length for the current server (default: 500 characters)"),
+    params = "<value>",
+    func = function(param)
+        local new_val = tonumber(param)
+        if new_val == nil then
+            new_val = 500
+        end
+        local server = minetest.get_server_info()
+        modstorage:set_int(server.address.."_max_len", new_val)
+        return true, "message maximum length set to "..new_val.." characters for \""..server.address.."\""
+    end,
 })
 
 minetest.register_chatcommand("rainbow", {
-    description = minetest.gettext(".rainbow <message> - rainbow text"),
+    description = minetest.gettext("Applies a rainbow effect to a message."),
+    params = "<message>",
     func = function(param)
         local step = 360 / param:len()
         local hue = 0
@@ -282,17 +276,18 @@ minetest.register_chatcommand("rainbow", {
         end
         say(output)
         return true
-end,
+    end,
 })
 
 minetest.register_chatcommand("pastel", {  -- added by dhausmig
-    description = minetest.gettext(".pastel <message> - pastel rainbow text"),
+    description = minetest.gettext("Applies a pastel rainbow effect to a message."),
+    params = "<message>",
     func = function(param)
         local step = 360 / param:len()
         local hue = 0
-              -- iterate the whole 360 degrees
         local output = ""
-              for i = 1, param:len() do
+        -- iterate the whole 360 degrees
+        for i = 1, param:len() do
             local char = param:sub(i,i)
             if char:match("%s") then
                 output = output .. char
@@ -306,8 +301,9 @@ minetest.register_chatcommand("pastel", {  -- added by dhausmig
     end,
 })
 
-minetest.register_chatcommand("alternate", {  -- added - alternates between two colours
-    description = minetest.gettext(".alternate [<col1> <col2>] <message> - alternate between two colours"),
+minetest.register_chatcommand("alternate", {  -- alternates between two colours
+    description = minetest.gettext("Alternate between two colours each letter"),
+    params = "[<colour1> <colour2>] <message>",
     func = function(parameter)
         local col1 = string.sub(parameter, 1, 7)
         local col2 = string.sub(parameter, 9, 15)
@@ -324,7 +320,7 @@ minetest.register_chatcommand("alternate", {  -- added - alternates between two 
         local output = ""
         local colr = col1
         for i=1, message:len() do
-            char = string.sub(message, i, i)
+            local char = string.sub(message, i, i)
             output = output .. minetest.get_color_escape_sequence(colr) .. char
             if char ~= " " then
                 if colr == col1 then
@@ -339,13 +335,15 @@ minetest.register_chatcommand("alternate", {  -- added - alternates between two 
     end,
 })
 
-minetest.register_chatcommand("fade", {  -- added - fades between any two colours#
-    description = minetest.gettext(".fade <col1> <col2> [<times 1-9>] <message> - fade message between two colours"),
+minetest.register_chatcommand("fade", {  -- fades between any two colours
+    description = minetest.gettext("Apply a fade between 2 colours to the message."),
+    params = "<colour1> <colour2> [<times>] <message>",
     func = fade,
 })
 
-minetest.register_chatcommand("custom", {  -- added - change colour anywhere in a message
-    description = minetest.gettext(".custom <message with colours> - use #<6-digits> anywhere  in the message to change the colour"),
+minetest.register_chatcommand("custom", {  -- change colour anywhere in a message
+    description = minetest.gettext("Use #<6-digits> anywhere in the message to change the colour."),
+    config = "<message (with colour codes)>",
     func = function(message)
         local output = ""
         local i = 0
@@ -363,8 +361,9 @@ minetest.register_chatcommand("custom", {  -- added - change colour anywhere in 
     end,
 })
 
-minetest.register_chatcommand("msg", {  -- added - lets you use /msg with colours
-    description = minetest.gettext(".msg <playername> <message> - send a pm to player using /msg, but use the current colour style"),
+minetest.register_chatcommand("msg", {  -- lets you use /msg with colours
+    description = minetest.gettext("Send a private message to a player. Same as using /msg, but uses the current colour style"),
+    params = "<name> <message>",
     func = function(parameter)
         local colour = modstorage:get_string("colour")
         if colour == "" or colour == "#ffffff #ffffff 1" or colour:len() ~= 17 then
@@ -379,31 +378,14 @@ minetest.register_chatcommand("msg", {  -- added - lets you use /msg with colour
             name = name .. string.sub(parameter, i, i)  -- contains leading space
         end
         local message = string.sub(parameter, i+1)
-        message = fade(colour.." "..message, 450)
+        message = fade(colour.." "..message, modstorage:get_int("max_len")-50)
         say("/msg "..name..message)
-    end,
-})
-
-
-minetest.register_chatcommand("mw", {  -- added - send a moderator warning
-    description = minetest.gettext("moderator warning - for moderators only!"),
-    func = function(message)
-        do_say = minetest.get_color_escape_sequence("#f00").."MODERATOR WARNING:  "..minetest.get_color_escape_sequence("#fff")..message
-        return true, minetest.get_color_escape_sequence("#f00").."THIS COMMAND IS MEANT FOR MODERATORS ONLY!  to send the message type '.y'"
-    end,
-})
-
-minetest.register_chatcommand("y", {  -- added - accept sending a moderator warning
-    description = minetest.gettext("accept the warning and continue from .mw"),
-    func = function(param)
-        if do_say ~= nil then
-            say(do_say)
-        end
     end,
 })
 
 minetest.register_chatcommand("say", {
     description = minetest.gettext("Send text without applying colour to it"),
+    params = "<message>",
     func = function(text)
         say(text)
         return true
